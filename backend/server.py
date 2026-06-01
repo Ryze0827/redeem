@@ -3,6 +3,7 @@ import json
 import mimetypes
 import os
 import posixpath
+import ssl
 import sys
 import urllib.error
 import urllib.parse
@@ -19,6 +20,14 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 REQUEST_TIMEOUT = float(os.environ.get("UPSTREAM_TIMEOUT", "25"))
 PID_FILE = Path(os.environ.get("PID_FILE", str(BASE_DIR / "run" / "backend.pid")))
 LOG_FILE = Path(os.environ.get("LOG_FILE", str(BASE_DIR / "logs" / "backend.log")))
+SSL_CONTEXT = None
+
+try:
+    import certifi
+
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    SSL_CONTEXT = ssl.create_default_context()
 
 
 def json_bytes(data):
@@ -112,7 +121,7 @@ class RedeemHandler(BaseHTTPRequestHandler):
 
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT, context=SSL_CONTEXT) as response:
                 content = response.read()
                 content_type = response.headers.get("Content-Type") or "application/json; charset=utf-8"
                 self.write_raw(content, response.status, content_type)
